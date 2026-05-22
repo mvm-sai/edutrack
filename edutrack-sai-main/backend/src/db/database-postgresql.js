@@ -167,7 +167,7 @@ const initDatabase = async () => {
 // ─── Run Migrations ───────────────────────────────────────────────────────────
 async function runMigrations() {
   try {
-    const migrationsPath = path.join(__dirname, '../migrations');
+    const migrationsPath = path.join(__dirname, '../../migrations');
     
     // Check if migrations directory exists
     if (!fs.existsSync(migrationsPath)) {
