@@ -118,10 +118,10 @@ const botAuth = (req, res, next) => {
 };
 
 // GET /api/whatsapp/pending-messages — local bot polls this
-router.get('/pending-messages', botAuth, (_req, res) => {
+router.get('/pending-messages', botAuth, async (_req, res) => {
   try {
     const { db } = require('../db/database');
-    const pending = db.prepare(`
+    const pending = await db.prepare(`
       SELECT id, phone, message, student_name, attendance_id, attempts, created_at
       FROM whatsapp_queue
       WHERE sent = 0 AND attempts < 3
@@ -135,7 +135,7 @@ router.get('/pending-messages', botAuth, (_req, res) => {
 });
 
 // POST /api/whatsapp/mark-sent — local bot marks message as delivered
-router.post('/mark-sent', botAuth, (req, res) => {
+router.post('/mark-sent', botAuth, async (req, res) => {
   try {
     const { db } = require('../db/database');
     const { messageId, success, error: sendError } = req.body;
@@ -146,20 +146,20 @@ router.post('/mark-sent', botAuth, (req, res) => {
 
     if (success) {
       // Mark as sent
-      db.prepare(`
+      await db.prepare(`
         UPDATE whatsapp_queue SET sent = 1, sent_at = datetime('now') WHERE id = ?
       `).run(messageId);
 
       // Also update the attendance record
-      const queueItem = db.prepare('SELECT attendance_id FROM whatsapp_queue WHERE id = ?').get(messageId);
+      const queueItem = await db.prepare('SELECT attendance_id FROM whatsapp_queue WHERE id = ?').get(messageId);
       if (queueItem && queueItem.attendance_id) {
-        db.prepare(`
+        await db.prepare(`
           UPDATE attendance SET whatsapp_sent = 1, whatsapp_error = NULL WHERE id = ?
         `).run(queueItem.attendance_id);
       }
     } else {
       // Increment attempt count
-      db.prepare(`
+      await db.prepare(`
         UPDATE whatsapp_queue SET attempts = attempts + 1, error = ? WHERE id = ?
       `).run(sendError || 'Unknown error', messageId);
     }
@@ -171,10 +171,10 @@ router.post('/mark-sent', botAuth, (req, res) => {
 });
 
 // GET /api/whatsapp/queue-stats — check queue status
-router.get('/queue-stats', botAuth, (_req, res) => {
+router.get('/queue-stats', botAuth, async (_req, res) => {
   try {
     const { db } = require('../db/database');
-    const stats = db.prepare(`
+    const stats = await db.prepare(`
       SELECT
         COUNT(*)                                    AS total,
         SUM(CASE WHEN sent = 1 THEN 1 ELSE 0 END)  AS sent,

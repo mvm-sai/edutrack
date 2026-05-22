@@ -42,7 +42,7 @@ const submitAttendance = async (req, res) => {
   }
 
   // ── Verify student exists (any staff can mark attendance for any student)
-  const student = db.prepare(`
+  const student = await db.prepare(`
     SELECT * FROM students WHERE id = ?
   `).get(student_id);
 
@@ -53,7 +53,7 @@ const submitAttendance = async (req, res) => {
   const today = new Date().toISOString().split('T')[0];
 
   // ── Check if already submitted today (for upsert)
-  const existingRecord = db.prepare(
+  const existingRecord = await db.prepare(
     'SELECT id FROM attendance WHERE student_id = ? AND date = ?'
   ).get(student_id, today);
 
@@ -80,14 +80,14 @@ const submitAttendance = async (req, res) => {
 
   // ── Save to database (upsert by student_id + date)
   if (existingRecord) {
-    db.prepare(`
+    await db.prepare(`
       UPDATE attendance
       SET status = ?, class_taken = ?, homework = ?,
           whatsapp_sent = ?, whatsapp_error = ?, teacher_id = ?
       WHERE student_id = ? AND date = ?
     `).run(status, class_taken.trim(), homework.trim(), whatsapp_sent, whatsapp_error, req.teacher.id, student_id, today);
   } else {
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO attendance (student_id, teacher_id, date, status, class_taken, homework, whatsapp_sent, whatsapp_error)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(student_id, req.teacher.id, today, status, class_taken.trim(), homework.trim(), whatsapp_sent, whatsapp_error);
@@ -142,26 +142,26 @@ const submitBulkAttendance = async (req, res) => {
       continue;
     }
 
-    const student = db.prepare('SELECT * FROM students WHERE id = ?').get(student_id);
+    const student = await db.prepare('SELECT * FROM students WHERE id = ?').get(student_id);
     if (!student) {
       results.push({ student_id, success: false, error: 'Student not found.', whatsapp_sent: false });
       continue;
     }
 
-    const existingRecord = db.prepare(
+    const existingRecord = await db.prepare(
       'SELECT id FROM attendance WHERE student_id = ? AND date = ?'
     ).get(student_id, today);
 
     // Save attendance immediately (don't wait for WhatsApp)
     if (existingRecord) {
-      db.prepare(`
+      await db.prepare(`
         UPDATE attendance
         SET status = ?, class_taken = ?, homework = ?,
             whatsapp_sent = 0, whatsapp_error = NULL, teacher_id = ?
         WHERE student_id = ? AND date = ?
       `).run(status, class_taken.trim(), homework.trim(), req.teacher.id, student_id, today);
     } else {
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO attendance (student_id, teacher_id, date, status, class_taken, homework, whatsapp_sent, whatsapp_error)
         VALUES (?, ?, ?, ?, ?, ?, 0, NULL)
       `).run(student_id, req.teacher.id, today, status, class_taken.trim(), homework.trim());
@@ -226,7 +226,7 @@ const submitBulkAttendance = async (req, res) => {
       console.log(`${progress} ✅ Sent to ${rec.student_name} (attempt ${sendResult.attempts})`);
 
       // Update DB: mark as sent
-      db.prepare(`
+      await db.prepare(`
         UPDATE attendance SET whatsapp_sent = 1, whatsapp_error = NULL
         WHERE student_id = ? AND date = ?
       `).run(rec.student_id, today);
@@ -235,7 +235,7 @@ const submitBulkAttendance = async (req, res) => {
       console.log(`${progress} ❌ Failed for ${rec.student_name} after ${sendResult.attempts} attempts: ${sendResult.error}`);
 
       // Update DB: record error
-      db.prepare(`
+      await db.prepare(`
         UPDATE attendance SET whatsapp_sent = 0, whatsapp_error = ?
         WHERE student_id = ? AND date = ?
       `).run(sendResult.error, rec.student_id, today);
@@ -255,10 +255,10 @@ const submitBulkAttendance = async (req, res) => {
 };
 
 // ─── GET /api/attendance/history ──────────────────────────────────────────────
-const getHistory = (req, res) => {
+const getHistory = async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 100);
 
-  const records = db.prepare(`
+  const records = await db.prepare(`
     SELECT
       a.id, a.date, a.status, a.class_taken, a.homework,
       a.whatsapp_sent, a.whatsapp_error, a.created_at,
@@ -275,10 +275,10 @@ const getHistory = (req, res) => {
 };
 
 // ─── GET /api/attendance/student/:studentId ───────────────────────────────────
-const getStudentHistory = (req, res) => {
+const getStudentHistory = async (req, res) => {
   const { studentId } = req.params;
 
-  const student = db.prepare(
+  const student = await db.prepare(
     'SELECT id, name, grade FROM students WHERE id = ?'
   ).get(studentId);
 
@@ -286,7 +286,7 @@ const getStudentHistory = (req, res) => {
     return res.status(404).json({ error: 'Student not found.' });
   }
 
-  const records = db.prepare(`
+  const records = await db.prepare(`
     SELECT date, status, class_taken, homework, whatsapp_sent, whatsapp_error, created_at
     FROM   attendance
     WHERE  student_id = ?
@@ -295,7 +295,7 @@ const getStudentHistory = (req, res) => {
   `).all(studentId);
 
   // Attendance summary counts
-  const summary = db.prepare(`
+  const summary = await db.prepare(`
     SELECT
       COUNT(*)                                  AS total,
       SUM(CASE WHEN status='present' THEN 1 ELSE 0 END) AS present_count,
@@ -309,7 +309,7 @@ const getStudentHistory = (req, res) => {
 
 // ─── GET /api/attendance/report?from=YYYY-MM-DD&to=YYYY-MM-DD ────────────────
 // Returns aggregated attendance data per student for PDF download
-const getAttendanceReport = (req, res) => {
+const getAttendanceReport = async (req, res) => {
   const { from, to, grade } = req.query;
 
   if (!from || !to) {
@@ -327,7 +327,7 @@ const getAttendanceReport = (req, res) => {
   }
 
   // Count working days (distinct dates with at least one attendance record in range)
-  const workingDaysResult = db.prepare(`
+  const workingDaysResult = await db.prepare(`
     SELECT COUNT(DISTINCT date) AS working_days
     FROM   attendance
     WHERE  date BETWEEN ? AND ?
@@ -345,7 +345,7 @@ const getAttendanceReport = (req, res) => {
   }
 
   // Get per-student aggregated data
-  const students = db.prepare(`
+  const students = await db.prepare(`
     SELECT
       s.id,
       s.name,

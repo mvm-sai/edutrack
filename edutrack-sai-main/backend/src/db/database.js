@@ -1,58 +1,71 @@
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
+/**
+ * database.js — Smart database router
+ * 
+ * When DATABASE_URL is set (production), uses PostgreSQL.
+ * Otherwise (local dev), uses SQLite via better-sqlite3.
+ */
 
-const dataDir = path.join(__dirname, '../../data');
+if (process.env.DATABASE_URL) {
+  // Production: re-export PostgreSQL module
+  module.exports = require('./database-postgresql');
+} else {
+  // Local development: SQLite
+  const Database = require('better-sqlite3');
+  const path = require('path');
+  const fs = require('fs');
 
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+  const dataDir = path.join(__dirname, '../../data');
+
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
+  const dbPath = path.join(dataDir, 'attendance.db');
+
+  const db = new Database(dbPath);
+
+  const initDatabase = () => {
+    // Teachers table
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS teachers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'teacher',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    // Students table
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS students (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        grade TEXT NOT NULL,
+        parent_whatsapp TEXT,
+        teacher_id INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    // Attendance table
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS attendance (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER NOT NULL,
+        teacher_id INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        date TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    console.log('✅ Database initialized (SQLite)');
+  };
+
+  module.exports = {
+    db,
+    initDatabase
+  };
 }
-
-const dbPath = path.join(dataDir, 'attendance.db');
-
-const db = new Database(dbPath);
-
-const initDatabase = () => {
-  // Teachers table
-  db.prepare(`
-    CREATE TABLE IF NOT EXISTS teachers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      role TEXT DEFAULT 'teacher',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `).run();
-
-  // Students table
-  db.prepare(`
-    CREATE TABLE IF NOT EXISTS students (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      grade TEXT NOT NULL,
-      parent_whatsapp TEXT,
-      teacher_id INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `).run();
-
-  // Attendance table
-  db.prepare(`
-    CREATE TABLE IF NOT EXISTS attendance (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER NOT NULL,
-      teacher_id INTEGER NOT NULL,
-      status TEXT NOT NULL,
-      date TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `).run();
-
-  console.log('✅ Database initialized');
-};
-
-module.exports = {
-  db,
-  initDatabase
-};

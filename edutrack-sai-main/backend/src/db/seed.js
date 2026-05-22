@@ -20,9 +20,9 @@ const isFresh = process.argv.includes('--fresh');
   console.log('\n🌱 Starting database seed...\n');
 
   if (isFresh) {
-    db.exec('DELETE FROM attendance');
-    db.exec('DELETE FROM students');
-    db.exec('DELETE FROM teachers');
+    await db.exec('DELETE FROM attendance');
+    await db.exec('DELETE FROM students');
+    await db.exec('DELETE FROM teachers');
     console.log('🗑️  Cleared existing data.\n');
   }
 
@@ -39,17 +39,17 @@ const isFresh = process.argv.includes('--fresh');
   const teacherIds = [];
 
   for (const { name, email, password, role } of TEACHERS) {
-    const existing = db.prepare('SELECT id FROM teachers WHERE email = ?').get(email);
+    const existing = await db.prepare('SELECT id FROM teachers WHERE email = ?').get(email);
     if (existing) {
       // Update role for existing teachers (in case it changed)
-      db.prepare('UPDATE teachers SET role = ? WHERE id = ?').run(role, existing.id);
+      await db.prepare('UPDATE teachers SET role = ? WHERE id = ?').run(role, existing.id);
       teacherIds.push(existing.id);
       console.log(`⏭️  Staff already exists: ${name} (${email}) — role: ${role}`);
       continue;
     }
 
     const hash   = bcrypt.hashSync(password, 10);
-    const result = db.prepare(
+    const result = await db.prepare(
       'INSERT INTO teachers (name, email, password_hash, role) VALUES (?, ?, ?, ?)'
     ).run(name, email, hash, role);
 
@@ -118,13 +118,13 @@ const isFresh = process.argv.includes('--fresh');
   console.log('');
 
   for (const { name, grade, phone } of STUDENTS) {
-    const existing = db.prepare('SELECT id FROM students WHERE name = ? AND grade = ?').get(name, grade);
+    const existing = await db.prepare('SELECT id FROM students WHERE name = ? AND grade = ?').get(name, grade);
     if (existing) {
       console.log(`⏭️  Student already exists: ${name} (${grade})`);
       continue;
     }
 
-    db.prepare(
+    await db.prepare(
       'INSERT INTO students (name, grade, parent_whatsapp, teacher_id) VALUES (?, ?, ?, ?)'
     ).run(name, grade, phone, defaultTeacherId);
 

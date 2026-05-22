@@ -2,8 +2,8 @@ const bcrypt = require('bcryptjs');
 const { db } = require('../db/database');
 
 // ─── GET /api/teachers — list all staff (admin only) ─────────────────────────
-const getAllTeachers = (req, res) => {
-  const teachers = db.prepare(`
+const getAllTeachers = async (req, res) => {
+  const teachers = await db.prepare(`
     SELECT id, name, email, role, created_at
     FROM   teachers
     ORDER  BY id ASC
@@ -13,7 +13,7 @@ const getAllTeachers = (req, res) => {
 };
 
 // ─── POST /api/teachers — create a new staff member (admin only) ─────────────
-const createTeacher = (req, res) => {
+const createTeacher = async (req, res) => {
   const { name, email, password, role } = req.body;
 
   // ── Validation
@@ -31,17 +31,17 @@ const createTeacher = (req, res) => {
   const staffRole = (role === 'admin') ? 'admin' : 'teacher';
 
   // Check duplicate email
-  const existing = db.prepare('SELECT id FROM teachers WHERE email = ?').get(cleanEmail);
+  const existing = await db.prepare('SELECT id FROM teachers WHERE email = ?').get(cleanEmail);
   if (existing) {
     return res.status(409).json({ error: `A staff member with email "${cleanEmail}" already exists.` });
   }
 
   const hash = bcrypt.hashSync(password, 10);
-  const result = db.prepare(
+  const result = await db.prepare(
     'INSERT INTO teachers (name, email, password_hash, role) VALUES (?, ?, ?, ?)'
   ).run(name.trim(), cleanEmail, hash, staffRole);
 
-  const newTeacher = db.prepare('SELECT id, name, email, role, created_at FROM teachers WHERE id = ?')
+  const newTeacher = await db.prepare('SELECT id, name, email, role, created_at FROM teachers WHERE id = ?')
     .get(result.lastInsertRowid);
 
   console.log(`➕ Staff created by admin: ${name.trim()} (${cleanEmail}) | Role: ${staffRole}`);
@@ -54,11 +54,11 @@ const createTeacher = (req, res) => {
 };
 
 // ─── PUT /api/teachers/:id — update staff member (admin only) ────────────────
-const updateTeacher = (req, res) => {
+const updateTeacher = async (req, res) => {
   const { id } = req.params;
   const { name, email, password, role } = req.body;
 
-  const teacher = db.prepare('SELECT * FROM teachers WHERE id = ?').get(parseInt(id));
+  const teacher = await db.prepare('SELECT * FROM teachers WHERE id = ?').get(parseInt(id));
   if (!teacher) {
     return res.status(404).json({ error: 'Staff member not found.' });
   }
@@ -80,7 +80,7 @@ const updateTeacher = (req, res) => {
   }
 
   // Check duplicate email (exclude current teacher)
-  const duplicate = db.prepare('SELECT id FROM teachers WHERE email = ? AND id != ?')
+  const duplicate = await db.prepare('SELECT id FROM teachers WHERE email = ? AND id != ?')
     .get(cleanEmail, parseInt(id));
   if (duplicate) {
     return res.status(409).json({ error: `Email "${cleanEmail}" is already in use by another staff member.` });
@@ -89,16 +89,16 @@ const updateTeacher = (req, res) => {
   // Update with or without password change
   if (password && password.length >= 6) {
     const hash = bcrypt.hashSync(password, 10);
-    db.prepare(`
+    await db.prepare(`
       UPDATE teachers SET name = ?, email = ?, password_hash = ?, role = ? WHERE id = ?
     `).run(name.trim(), cleanEmail, hash, staffRole, parseInt(id));
   } else {
-    db.prepare(`
+    await db.prepare(`
       UPDATE teachers SET name = ?, email = ?, role = ? WHERE id = ?
     `).run(name.trim(), cleanEmail, staffRole, parseInt(id));
   }
 
-  const updated = db.prepare('SELECT id, name, email, role, created_at FROM teachers WHERE id = ?')
+  const updated = await db.prepare('SELECT id, name, email, role, created_at FROM teachers WHERE id = ?')
     .get(parseInt(id));
 
   console.log(`✏️ Staff updated by admin: ${name.trim()} (#${id}) | Role: ${staffRole}`);
@@ -111,10 +111,10 @@ const updateTeacher = (req, res) => {
 };
 
 // ─── DELETE /api/teachers/:id — remove staff member (admin only) ─────────────
-const deleteTeacher = (req, res) => {
+const deleteTeacher = async (req, res) => {
   const { id } = req.params;
 
-  const teacher = db.prepare('SELECT * FROM teachers WHERE id = ?').get(parseInt(id));
+  const teacher = await db.prepare('SELECT * FROM teachers WHERE id = ?').get(parseInt(id));
   if (!teacher) {
     return res.status(404).json({ error: 'Staff member not found.' });
   }
@@ -125,18 +125,18 @@ const deleteTeacher = (req, res) => {
   }
 
   // Count associated data
-  const studentCount = db.prepare('SELECT COUNT(*) as count FROM students WHERE teacher_id = ?')
+  const studentCount = await db.prepare('SELECT COUNT(*) as count FROM students WHERE teacher_id = ?')
     .get(parseInt(id));
 
   // Reassign students to the current admin before deleting
   if (studentCount.count > 0) {
-    db.prepare('UPDATE students SET teacher_id = ? WHERE teacher_id = ?')
+    await db.prepare('UPDATE students SET teacher_id = ? WHERE teacher_id = ?')
       .run(req.teacher.id, parseInt(id));
     console.log(`📦 Reassigned ${studentCount.count} students from teacher #${id} to admin #${req.teacher.id}`);
   }
 
   // Delete the teacher
-  db.prepare('DELETE FROM teachers WHERE id = ?').run(parseInt(id));
+  await db.prepare('DELETE FROM teachers WHERE id = ?').run(parseInt(id));
 
   console.log(`🗑️ Staff deleted by admin: ${teacher.name} (#${id})`);
 

@@ -2,7 +2,7 @@ const { db } = require('../db/database');
 
 // GET /api/students  — returns ALL students (shared pool) + today's attendance status
 // Supports ?grade=... query param for class filtering
-const getMyStudents = (req, res) => {
+const getMyStudents = async (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const gradeFilter = req.query.grade;
 
@@ -35,19 +35,19 @@ const getMyStudents = (req, res) => {
 
   sql += ' ORDER BY s.grade ASC, s.name ASC';
 
-  const students = db.prepare(sql).all(...params);
+  const students = await db.prepare(sql).all(...params);
 
   // Get unique grades for filter dropdown
-  const grades = db.prepare(
+  const grades = (await db.prepare(
     'SELECT DISTINCT grade FROM students ORDER BY grade ASC'
-  ).all().map(r => r.grade);
+  ).all()).map(r => r.grade);
 
   res.json({ students, date: today, grades });
 };
 
 // GET /api/students/:id  — single student (any staff can view)
-const getStudent = (req, res) => {
-  const student = db.prepare(`
+const getStudent = async (req, res) => {
+  const student = await db.prepare(`
     SELECT id, name, grade, roll_number, parent_name, parent_whatsapp, teacher_id
     FROM   students
     WHERE  id = ?
@@ -58,7 +58,7 @@ const getStudent = (req, res) => {
   }
 
   // Include recent attendance for this student
-  const recentAttendance = db.prepare(`
+  const recentAttendance = await db.prepare(`
     SELECT date, status, class_taken, homework, whatsapp_sent, created_at
     FROM   attendance
     WHERE  student_id = ?
@@ -70,7 +70,7 @@ const getStudent = (req, res) => {
 };
 
 // ─── POST /api/students ─────────────────────────────────────────────────────
-const createStudent = (req, res) => {
+const createStudent = async (req, res) => {
   const { name, grade, roll_number, parent_name, parent_whatsapp } = req.body;
   const teacherId = req.teacher.id;
 
@@ -96,7 +96,7 @@ const createStudent = (req, res) => {
 
   // Check duplicate roll_number for this teacher
   if (roll_number && roll_number.trim()) {
-    const duplicate = db.prepare(
+    const duplicate = await db.prepare(
       'SELECT id FROM students WHERE teacher_id = ? AND roll_number = ?'
     ).get(teacherId, roll_number.trim());
 
@@ -106,7 +106,7 @@ const createStudent = (req, res) => {
   }
 
   // ── Insert
-  const result = db.prepare(`
+  const result = await db.prepare(`
     INSERT INTO students (name, grade, roll_number, parent_name, parent_whatsapp, teacher_id)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(
@@ -118,7 +118,7 @@ const createStudent = (req, res) => {
     teacherId
   );
 
-  const newStudent = db.prepare('SELECT * FROM students WHERE id = ?').get(result.lastInsertRowid);
+  const newStudent = await db.prepare('SELECT * FROM students WHERE id = ?').get(result.lastInsertRowid);
 
   console.log(`➕ Student created: ${name.trim()} (${grade.trim()}) by teacher #${teacherId}`);
 
@@ -130,13 +130,13 @@ const createStudent = (req, res) => {
 };
 
 // ─── PUT /api/students/:id ──────────────────────────────────────────────────
-const updateStudent = (req, res) => {
+const updateStudent = async (req, res) => {
   const { id } = req.params;
   const teacherId = req.teacher.id;
   const { name, grade, roll_number, parent_name, parent_whatsapp } = req.body;
 
   // ── Find student
-  const student = db.prepare('SELECT * FROM students WHERE id = ?').get(id);
+  const student = await db.prepare('SELECT * FROM students WHERE id = ?').get(id);
   if (!student) {
     return res.status(404).json({ error: 'Student not found.' });
   }
@@ -167,7 +167,7 @@ const updateStudent = (req, res) => {
 
   // Check duplicate roll_number (exclude current student)
   if (roll_number && roll_number.trim()) {
-    const duplicate = db.prepare(
+    const duplicate = await db.prepare(
       'SELECT id FROM students WHERE teacher_id = ? AND roll_number = ? AND id != ?'
     ).get(teacherId, roll_number.trim(), parseInt(id));
 
@@ -177,7 +177,7 @@ const updateStudent = (req, res) => {
   }
 
   // ── Update
-  db.prepare(`
+  await db.prepare(`
     UPDATE students
     SET name = ?, grade = ?, roll_number = ?, parent_name = ?, parent_whatsapp = ?
     WHERE id = ?
@@ -190,7 +190,7 @@ const updateStudent = (req, res) => {
     parseInt(id)
   );
 
-  const updated = db.prepare('SELECT * FROM students WHERE id = ?').get(parseInt(id));
+  const updated = await db.prepare('SELECT * FROM students WHERE id = ?').get(parseInt(id));
 
   console.log(`✏️ Student updated: ${name.trim()} (#${id}) by teacher #${teacherId}`);
 
@@ -202,12 +202,12 @@ const updateStudent = (req, res) => {
 };
 
 // ─── DELETE /api/students/:id ───────────────────────────────────────────────
-const deleteStudent = (req, res) => {
+const deleteStudent = async (req, res) => {
   const { id } = req.params;
   const teacherId = req.teacher.id;
 
   // ── Find student
-  const student = db.prepare('SELECT * FROM students WHERE id = ?').get(parseInt(id));
+  const student = await db.prepare('SELECT * FROM students WHERE id = ?').get(parseInt(id));
   if (!student) {
     return res.status(404).json({ error: 'Student not found.' });
   }
@@ -218,15 +218,15 @@ const deleteStudent = (req, res) => {
   }
 
   // ── Count related attendance records
-  const attCount = db.prepare(
+  const attCount = await db.prepare(
     'SELECT COUNT(*) as count FROM attendance WHERE student_id = ?'
   ).get(parseInt(id));
 
   // ── Delete attendance records first
-  db.prepare('DELETE FROM attendance WHERE student_id = ?').run(parseInt(id));
+  await db.prepare('DELETE FROM attendance WHERE student_id = ?').run(parseInt(id));
 
   // ── Delete student
-  db.prepare('DELETE FROM students WHERE id = ?').run(parseInt(id));
+  await db.prepare('DELETE FROM students WHERE id = ?').run(parseInt(id));
 
   console.log(`🗑️ Student deleted: ${student.name} (#${id}) + ${attCount.count} attendance records by teacher #${teacherId}`);
 

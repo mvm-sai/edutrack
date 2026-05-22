@@ -4,12 +4,7 @@ const express = require('express');
 const path    = require('path');
 const cors    = require('cors');
 const { initWhatsApp }  = require('./src/whatsapp/client');
-
-// Auto-detect database: PostgreSQL in production, SQLite locally
-const dbModule = process.env.DATABASE_URL
-  ? require('./src/db/database-postgresql')
-  : require('./src/db/database');
-const { initDatabase } = dbModule;
+const { initDatabase }  = require('./src/db/database');
 
 const app  = express();
 const PORT = process.env.PORT || 3001;

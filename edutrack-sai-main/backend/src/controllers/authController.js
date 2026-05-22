@@ -3,14 +3,14 @@ const jwt    = require('jsonwebtoken');
 const { db } = require('../db/database');
 
 // POST /api/auth/login
-const login = (req, res) => {
+const login = async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
   }
 
-  const teacher = db.prepare('SELECT * FROM teachers WHERE email = ?').get(email.toLowerCase().trim());
+  const teacher = await db.prepare('SELECT * FROM teachers WHERE email = ?').get(email.toLowerCase().trim());
   if (!teacher) {
     return res.status(401).json({ error: 'Invalid email or password.' });
   }
@@ -35,8 +35,8 @@ const login = (req, res) => {
 };
 
 // GET /api/auth/me  (protected)
-const me = (req, res) => {
-  const teacher = db.prepare('SELECT id, name, email, role FROM teachers WHERE id = ?').get(req.teacher.id);
+const me = async (req, res) => {
+  const teacher = await db.prepare('SELECT id, name, email, role FROM teachers WHERE id = ?').get(req.teacher.id);
   if (!teacher) {
     return res.status(404).json({ error: 'Teacher account not found.' });
   }
