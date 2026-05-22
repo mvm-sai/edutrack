@@ -34,13 +34,13 @@ RUN cd backend && npm ci --production
 COPY frontend/package*.json ./frontend/
 RUN cd frontend && npm ci
 
-# Copy all source code
+# Copy all source code (cache bust: v3)
 COPY . .
 
 # Build frontend
 RUN cd frontend && npm run build
 
-# Create data directory for SQLite
+# Create data directory for SQLite fallback
 RUN mkdir -p /app/backend/data
 
 WORKDIR /app/backend
