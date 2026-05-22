@@ -8,6 +8,10 @@
 const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
+const dns = require('dns');
+
+// Force IPv4 — Render free tier doesn't support IPv6 outbound
+dns.setDefaultResultOrder('ipv4first');
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/edutrack';
@@ -17,7 +21,8 @@ const pool = new Pool({
   connectionString: DATABASE_URL,
   max: 20, // max connections in pool
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000,
+  ssl: DATABASE_URL.includes('supabase') ? { rejectUnauthorized: false } : false,
 });
 
 // ─── Error handling ───────────────────────────────────────────────────────────

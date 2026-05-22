@@ -47,5 +47,5 @@ WORKDIR /app/backend
 
 EXPOSE 3001
 
-# Seed database and start server
-CMD ["sh", "-c", "npm run seed && npm start"]
+# Seed database (non-fatal if already seeded) and start server
+CMD ["sh", "-c", "npm run seed || true && npm start"]
