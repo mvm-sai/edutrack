@@ -1,7 +1,15 @@
-const env = process.env.DATABASE_URL;
+const { Sequelize } = require('sequelize');
 
-if (env) {
-  module.exports = require('./database-postgresql');
-} else {
-  module.exports = require('./database-sqlite');
-}
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+  dialect: 'postgres',
+  protocol: 'postgres',
+  logging: false,
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false,
+    },
+  },
+});
+
+module.exports = sequelize;
