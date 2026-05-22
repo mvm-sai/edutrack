@@ -169,6 +169,20 @@ Frontend runs at **http://localhost:5173**
 
 ---
 
+## 🌐 Free Live Deployment (GitHub Pages)
+
+A working public site can be published with GitHub Pages as a static frontend.
+
+1. Push this repository to GitHub.
+2. Enable GitHub Pages for this repo in Settings.
+3. Use the workflow file at `.github/workflows/deploy-frontend.yml`.
+
+The workflow builds `frontend` and deploys the static site from `frontend/dist` automatically on push to `main` or `master`.
+
+> This gives you a public live website even if backend integrations are not fully configured yet.
+
+---
+
 ## 🔐 Login Credentials
 
 | Name | Email | Password |

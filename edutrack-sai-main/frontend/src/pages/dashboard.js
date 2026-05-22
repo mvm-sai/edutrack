@@ -732,5 +732,3 @@ const generateAttendancePDF = (data, from, to, teacher) => {
     document.getElementById('wa-tab-phone').classList.add('active');
     document.getElementById('wa-tab-qr').classList.remove('active');
   });
-
-};
