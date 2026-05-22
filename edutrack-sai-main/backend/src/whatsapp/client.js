@@ -57,6 +57,16 @@ const initWhatsApp = () => {
     '--no-zygote',
     '--disable-gpu',
     '--single-process',
+    // Memory-saving flags for Render free tier (512MB)
+    '--js-flags=--max-old-space-size=256',
+    '--disable-extensions',
+    '--disable-background-networking',
+    '--disable-default-apps',
+    '--disable-sync',
+    '--disable-translate',
+    '--metrics-recording-only',
+    '--no-default-browser-check',
+    '--mute-audio',
   ];
 
   const puppeteerOpts = {

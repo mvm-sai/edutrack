@@ -9,6 +9,11 @@ const { initDatabase }  = require('./src/db/database');
 const app  = express();
 const PORT = process.env.PORT || 3001;
 
+// Prevent Chrome/Puppeteer crashes from killing the server
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️ Unhandled rejection (server continues):', reason?.message || reason);
+});
+
 // Wrap everything in async so we can await database init
 (async () => {
 
@@ -100,8 +105,12 @@ app.use((err, _req, res, _next) => {
     console.log('   GET  /api/whatsapp/status');
     console.log('\n📱 Booting WhatsApp client...\n');
 
-    // Boot WhatsApp — QR code will appear in this terminal
-    initWhatsApp();
+    // Boot WhatsApp — don't let Chrome crashes kill the server
+    try {
+      initWhatsApp();
+    } catch (err) {
+      console.error('⚠️ WhatsApp failed to start (server continues):', err.message);
+    }
   });
 
 })().catch((err) => {
