@@ -1,190 +1,58 @@
-const path = require('path');
-const fs = require('fs');
-const qrcode = require('qrcode-terminal');
+const axios = require('axios');
 
-let whatsappClient = null;
-let isReady = false;
-let isInitializing = false;
-let latestQr = null;
-
-// Find Chrome/Chromium binary across different environments
-function findChromePath() {
-  const candidates = [
-    // Render Docker (installed via apt-get)
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    // Environment variable override
-    process.env.PUPPETEER_EXECUTABLE_PATH,
-    // Common Linux paths
-    '/usr/lib/chromium/chromium',
-    '/snap/bin/chromium',
-    // Windows (local dev)
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  ].filter(Boolean);
-
-  for (const p of candidates) {
-    try {
-      if (fs.existsSync(p)) {
-        console.log(`🔍 Found Chrome at: ${p}`);
-        return p;
-      }
-    } catch {}
-  }
-
-  // Fallback: let Puppeteer find it automatically
-  console.log('⚠️  No Chrome found at known paths, letting Puppeteer auto-detect');
-  return undefined;
-}
-
-const initWhatsApp = () => {
-  if (isInitializing || whatsappClient) return;
-  isInitializing = true;
-
-  const { Client, LocalAuth } = require('whatsapp-web.js');
-
-  const chromePath = findChromePath();
-  console.log(`🌐 Using Chrome at: ${chromePath || 'auto-detect'}`);
-
-  const puppeteerArgs = [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-accelerated-2d-canvas',
-    '--no-first-run',
-    '--no-zygote',
-    '--disable-gpu',
-    '--single-process',
-    // Memory-saving flags for Render free tier (512MB)
-    '--js-flags=--max-old-space-size=256',
-    '--disable-extensions',
-    '--disable-background-networking',
-    '--disable-default-apps',
-    '--disable-sync',
-    '--disable-translate',
-    '--metrics-recording-only',
-    '--no-default-browser-check',
-    '--mute-audio',
-  ];
-
-  const puppeteerOpts = {
-    headless: true,
-    args: puppeteerArgs,
-  };
-
-  // Only set executablePath if we found one — otherwise let Puppeteer auto-detect
-  if (chromePath) {
-    puppeteerOpts.executablePath = chromePath;
-  }
-
-  const client = new Client({
-    authStrategy: new LocalAuth({
-      dataPath: path.join(process.cwd(), '.wwebjs_auth'),
-    }),
-    puppeteer: puppeteerOpts,
-  });
-
-  // ── EVENTS ─────────────────────────────────────
-  client.on('qr', (qr) => {
-    latestQr = qr;
-
-    console.log('\n📱 SCAN THIS QR:\n');
-    qrcode.generate(qr, { small: true });
-  });
-
-  client.on('ready', () => {
-    isReady = true;
-    latestQr = null;
-    console.log('✅ WhatsApp READY');
-  });
-
-  client.on('authenticated', () => {
-    console.log('🔐 Authenticated');
-  });
-
-  client.on('auth_failure', (msg) => {
-    console.error('❌ Auth failed:', msg);
-    whatsappClient = null;
-    isInitializing = false;
-    setTimeout(initWhatsApp, 30000);
-  });
-
-  client.on('disconnected', async () => {
-    console.log('⚠️ Disconnected');
-    isReady = false;
-
-    try {
-      await client.destroy();
-    } catch {}
-
-    whatsappClient = null;
-    isInitializing = false;
-    setTimeout(initWhatsApp, 10000);
-  });
-
-  client.initialize().catch((err) => {
-    console.error('❌ WhatsApp init error:', err.message);
-    whatsappClient = null;
-    isInitializing = false;
-    setTimeout(initWhatsApp, 30000);
-  });
-
-  whatsappClient = client;
-};
-
-// ─────────────────────────────────────────────
-
+/**
+ * Send a WhatsApp message using the Official Meta Cloud API.
+ * Requires META_WA_PHONE_NUMBER_ID and META_WA_ACCESS_TOKEN in env.
+ */
 const sendMessage = async (phone, message) => {
-  if (!whatsappClient || !isReady) {
-    throw new Error('WhatsApp not ready');
+  const phoneId = process.env.META_WA_PHONE_NUMBER_ID;
+  const token = process.env.META_WA_ACCESS_TOKEN;
+
+  if (!phoneId || !token) {
+    console.error('⚠️ Meta WhatsApp API credentials missing. Message not sent.');
+    throw new Error('WhatsApp API not configured');
   }
 
-  const numberId = await whatsappClient.getNumberId(phone);
-  if (!numberId) throw new Error('Number not on WhatsApp');
+  // Format phone: remove all non-digits. The API expects the country code without '+'
+  const formattedPhone = phone.replace(/\D/g, '');
 
-  await whatsappClient.sendMessage(numberId._serialized, message);
-};
-
-const getStatus = () => ({
-  isReady,
-  hasClient: !!whatsappClient,
-  isInitializing,
-});
-
-const getLatestQr = () => latestQr;
-
-const logoutWhatsApp = async () => {
-  if (!whatsappClient) {
-    return { success: true, message: 'No active WhatsApp session.' };
-  }
   try {
-    await whatsappClient.logout();
-    await whatsappClient.destroy();
-  } catch {}
-  whatsappClient = null;
-  isReady = false;
-  isInitializing = false;
-  latestQr = null;
-  return { success: true, message: 'WhatsApp session ended.' };
-};
-
-const requestPairingCode = async (phoneNumber) => {
-  if (!whatsappClient) {
-    throw new Error('WhatsApp client is not initialized. Please wait.');
+    const url = `https://graph.facebook.com/v17.0/${phoneId}/messages`;
+    
+    await axios.post(
+      url,
+      {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: formattedPhone,
+        type: 'text',
+        text: { preview_url: false, body: message }
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    console.log(`✅ Meta WhatsApp message sent to ${formattedPhone}`);
+  } catch (err) {
+    const errorDetail = err.response?.data?.error?.message || err.message;
+    console.error(`❌ Meta WhatsApp send failed to ${formattedPhone}:`, errorDetail);
+    throw new Error(`WhatsApp API Error: ${errorDetail}`);
   }
-  const code = await whatsappClient.requestPairingCode(phoneNumber);
-  return { success: true, pairingCode: code };
 };
 
-// ─────────────────────────────────────────────
+const getStatus = () => {
+  const hasCreds = !!(process.env.META_WA_PHONE_NUMBER_ID && process.env.META_WA_ACCESS_TOKEN);
+  return {
+    isReady: hasCreds,
+    hasClient: hasCreds,
+    isInitializing: false,
+  };
+};
 
 module.exports = {
-  initWhatsApp,
   sendMessage,
   getStatus,
-  getLatestQr,
-  logoutWhatsApp,
-  requestPairingCode,
 };

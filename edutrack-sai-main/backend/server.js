@@ -3,7 +3,6 @@ require('dotenv').config();
 const express = require('express');
 const path    = require('path');
 const cors    = require('cors');
-const { initWhatsApp }  = require('./src/whatsapp/client');
 const { initDatabase }  = require('./src/db/database');
 
 const app  = express();
@@ -103,14 +102,8 @@ app.use((err, _req, res, _next) => {
     console.log('   GET  /api/attendance/history');
     console.log('   GET  /api/attendance/student/:id');
     console.log('   GET  /api/whatsapp/status');
-    console.log('\n📱 Booting WhatsApp client...\n');
-
-    // Boot WhatsApp — don't let Chrome crashes kill the server
-    try {
-      initWhatsApp();
-    } catch (err) {
-      console.error('⚠️ WhatsApp failed to start (server continues):', err.message);
-    }
+    console.log('   GET  /api/whatsapp/status');
+    console.log('');
   });
 
 })().catch((err) => {

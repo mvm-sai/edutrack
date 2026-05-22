@@ -96,21 +96,7 @@ export const getAttendanceReport = (from, to, grade) => {
 export const getWhatsAppStatus = () =>
   fetch(`${API_BASE}/whatsapp/status`, { headers: headers() }).then(handleResponse);
 
-export const getWhatsAppQR = () =>
-  fetch(`${API_BASE}/whatsapp/qr-data`).then(handleResponse);
 
-export const logoutWhatsAppAPI = () =>
-  fetch(`${API_BASE}/whatsapp/logout`, {
-    method:  'POST',
-    headers: headers(),
-  }).then(handleResponse);
-
-export const pairWhatsApp = (phoneNumber) =>
-  fetch(`${API_BASE}/whatsapp/pair`, {
-    method:  'POST',
-    headers: headers(),
-    body:    JSON.stringify({ phoneNumber }),
-  }).then(handleResponse);
 
 // ─── Teachers (Admin only) ────────────────────────────────────────────────────
 export const getTeachers = () =>
