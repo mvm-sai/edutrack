@@ -740,7 +740,8 @@ const openWhatsAppQRModal = async (navigate) => {
       </div>
 
       <div class="wa-link-tabs">
-        <button class="wa-tab active" id="wa-tab-qr" type="button">📷 Scan QR Code</button>
+        <button class="wa-tab" id="wa-tab-qr" type="button">📷 Scan QR Code</button>
+        <button class="wa-tab active" id="wa-tab-phone" type="button">📞 Link with Phone Number</button>
       </div>
 
       <div class="wa-qr-body" id="wa-qr-body">
@@ -777,7 +778,7 @@ const openWhatsAppQRModal = async (navigate) => {
   });
 
   // ── Tab state
-  let activeTab = 'qr'; // Only QR code tab available
+  let activeTab = 'phone'; // Default to phone pairing
 
   const renderQRTab = async () => {
     const body = document.getElementById('wa-qr-body');
@@ -815,6 +816,78 @@ const openWhatsAppQRModal = async (navigate) => {
     }
   };
 
+  const renderPhoneTab = () => {
+    const body = document.getElementById('wa-qr-body');
+    if (!body) return;
+
+    body.innerHTML = `
+      <div class="wa-phone-pair">
+        <div class="wa-phone-icon" style="font-size:3rem; margin-bottom:12px;">📞</div>
+        <p class="wa-qr-status-msg" style="margin-bottom:16px;">Enter the WhatsApp phone number to link</p>
+        <div class="wa-phone-input-group">
+          <input
+            type="tel"
+            id="wa-phone-input"
+            class="wa-phone-input"
+            placeholder="e.g. 919876543210"
+            maxlength="15"
+            style="width:100%; padding:12px 16px; border-radius:10px; border:1px solid rgba(122,108,255,0.3); background:rgba(255,255,255,0.05); color:#e9edef; font-size:1.1rem; text-align:center; letter-spacing:2px; outline:none;"
+          />
+          <p style="font-size:0.75rem; color:#8696a0; margin-top:6px;">Format: country code + number (no + or spaces)</p>
+        </div>
+        <button type="button" id="wa-pair-btn" class="btn-submit" style="margin-top:16px; width:100%; padding:12px; border-radius:10px; font-size:1rem;">
+          🔗 Get Pairing Code
+        </button>
+        <div id="wa-pair-result" style="margin-top:16px; display:none;"></div>
+        <ul class="wa-qr-steps" style="margin-top:20px;">
+          <li><span class="step-num">1</span> Enter the phone number above & click "Get Pairing Code"</li>
+          <li><span class="step-num">2</span> Open WhatsApp → <strong>Settings → Linked Devices</strong></li>
+          <li><span class="step-num">3</span> Tap <strong>Link a Device</strong></li>
+          <li><span class="step-num">4</span> Tap <strong>"Link with phone number instead"</strong></li>
+          <li><span class="step-num">5</span> Enter the <strong>8-digit code</strong> shown here</li>
+        </ul>
+      </div>
+    `;
+
+    // Wire pair button
+    document.getElementById('wa-pair-btn')?.addEventListener('click', async () => {
+      const phoneInput = document.getElementById('wa-phone-input');
+      const phone = phoneInput?.value.trim().replace(/[^0-9]/g, '');
+      const resultDiv = document.getElementById('wa-pair-result');
+
+      if (!phone || phone.length < 10) {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<p style="color:#ff6b6b; font-size:0.9rem;">⚠️ Enter a valid phone number (e.g. 919876543210)</p>';
+        return;
+      }
+
+      const btn = document.getElementById('wa-pair-btn');
+      btn.innerHTML = '<span class="spinner-sm"></span> Requesting code...';
+      btn.disabled = true;
+
+      try {
+        const result = await pairWhatsApp(phone);
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `
+          <div style="background:rgba(37,211,102,0.1); border:1px solid rgba(37,211,102,0.3); border-radius:12px; padding:20px; text-align:center;">
+            <p style="color:#25D366; font-size:0.9rem; margin-bottom:8px;">✅ Pairing code generated!</p>
+            <div style="font-size:2.5rem; font-weight:bold; letter-spacing:8px; color:#fff; font-family:monospace; padding:12px;">
+              ${result.pairingCode}
+            </div>
+            <p style="color:#8696a0; font-size:0.8rem; margin-top:8px;">Enter this code in WhatsApp → Linked Devices → Link with phone number</p>
+            <p style="color:#ff9800; font-size:0.75rem; margin-top:6px;">⏳ Code expires in ~60 seconds</p>
+          </div>
+        `;
+      } catch (err) {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `<p style="color:#ff6b6b; font-size:0.9rem;">❌ ${err.message}</p>`;
+      } finally {
+        btn.innerHTML = '🔗 Get Pairing Code';
+        btn.disabled = false;
+      }
+    });
+  };
+
   const renderConnected = () => {
     const body = document.getElementById('wa-qr-body');
     if (!body) return;
@@ -849,8 +922,27 @@ const openWhatsAppQRModal = async (navigate) => {
   const renderActiveTab = async () => {
     const connected = await checkConnection();
     if (connected) return;
-    await renderQRTab();
+    if (activeTab === 'qr') {
+      await renderQRTab();
+    } else {
+      renderPhoneTab();
+    }
   };
+
+  // ── Tab switching
+  document.getElementById('wa-tab-qr')?.addEventListener('click', () => {
+    activeTab = 'qr';
+    document.getElementById('wa-tab-qr').classList.add('active');
+    document.getElementById('wa-tab-phone').classList.remove('active');
+    renderActiveTab();
+  });
+
+  document.getElementById('wa-tab-phone')?.addEventListener('click', () => {
+    activeTab = 'phone';
+    document.getElementById('wa-tab-phone').classList.add('active');
+    document.getElementById('wa-tab-qr').classList.remove('active');
+    renderActiveTab();
+  });
 
   // Initial render
   await renderActiveTab();
@@ -859,8 +951,10 @@ const openWhatsAppQRModal = async (navigate) => {
   qrRefreshInterval = setInterval(async () => {
     const connected = await checkConnection();
     if (connected) return;
-    // Refresh QR code
-    await renderQRTab();
+    // Only refresh QR tab automatically
+    if (activeTab === 'qr') {
+      await renderQRTab();
+    }
   }, 5000);
 };
 
