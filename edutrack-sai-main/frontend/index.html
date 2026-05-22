@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>EduTrack — Teacher Attendance Portal</title>
+    <meta name="description" content="Teacher attendance tracking and automated WhatsApp parent notifications." />
+
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#7a6cff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="EduTrack" />
+    <link rel="apple-touch-icon" href="/icon-512.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="EduTrack" />
+    <meta name="msapplication-TileColor" content="#07071a" />
+    <meta name="msapplication-TileImage" content="/icon-512.png" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/styles/main.css" />
+    <link rel="icon" type="image/png" href="/icon-512.png" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Content injected by JavaScript router -->
+      <div class="initial-loader">
+        <div class="loader-ring"></div>
+      </div>
+    </div>
+    <div id="toast-container"></div>
+
+    <!-- PWA Install Banner (hidden by default, shown via JS) -->
+    <div id="pwa-install-banner" class="pwa-install-banner" style="display:none;">
+      <div class="pwa-install-content">
+        <img src="/icon-512.png" alt="EduTrack" class="pwa-install-icon" />
+        <div class="pwa-install-text">
+          <strong>Install EduTrack</strong>
+          <span>Add to home screen for a native app experience</span>
+        </div>
+        <button id="pwa-install-btn" class="pwa-install-btn">Install</button>
+        <button id="pwa-dismiss-btn" class="pwa-dismiss-close">&times;</button>
+      </div>
+    </div>
+
+    <!-- PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+
+    <script type="module" src="/src/main.js"></script>
+
+    <!-- Service Worker: clear old caches in dev, register only in production -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', async () => {
+          // Always unregister old service workers and clear caches to avoid stale content
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const reg of regs) { await reg.unregister(); }
+          const keys = await caches.keys();
+          for (const key of keys) { await caches.delete(key); }
+          if (regs.length || keys.length) {
+            console.log('[PWA] Cleared old service workers and caches');
+          }
+        });
+      }
+
+      // PWA Install Prompt
+      let deferredPrompt;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        // Show custom install banner
+        const banner = document.getElementById('pwa-install-banner');
+        if (banner) banner.style.display = 'flex';
+        console.log('[PWA] Install prompt captured');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (e.target.id === 'pwa-install-btn' && deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then((result) => {
+            console.log('[PWA] Install choice:', result.outcome);
+            deferredPrompt = null;
+            document.getElementById('pwa-install-banner').style.display = 'none';
+          });
+        }
+        if (e.target.id === 'pwa-dismiss-btn') {
+          document.getElementById('pwa-install-banner').style.display = 'none';
+        }
+      });
+
+      window.addEventListener('appinstalled', () => {
+        console.log('[PWA] App installed successfully!');
+        document.getElementById('pwa-install-banner').style.display = 'none';
+      });
+    </script>
+  </body>
+</html>

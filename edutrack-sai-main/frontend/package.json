@@ -1,0 +1,20 @@
+{
+  "name": "teacher-attendance-frontend",
+  "version": "1.0.0",
+  "description": "Teacher Attendance & WhatsApp Automation — Frontend",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.2.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/cli": "^8.3.0",
+    "@capacitor/core": "^8.3.0",
+    "jspdf": "^2.5.1",
+    "html2pdf.js": "^0.10.1"
+  }
+}

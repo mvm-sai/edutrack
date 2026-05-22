@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Teacher Attendance</string>
+    <string name="title_activity_main">Teacher Attendance</string>
+    <string name="package_name">com.sai.teacherapp</string>
+    <string name="custom_url_scheme">com.sai.teacherapp</string>
+</resources>

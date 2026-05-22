@@ -1,0 +1,5 @@
+{
+  "appId": "com.sai.teacherapp",
+  "appName": "Teacher Attendance",
+  "webDir": "dist"
+}

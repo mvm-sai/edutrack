@@ -1,0 +1,15 @@
+{
+  "name": "edutrack-whatsapp-bot",
+  "version": "1.0.0",
+  "description": "Local WhatsApp bot that polls the EduTrack cloud API and sends queued messages",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "node bot.js"
+  },
+  "dependencies": {
+    "whatsapp-web.js": "^1.24.0",
+    "qrcode-terminal": "^0.12.0",
+    "axios": "^1.7.0"
+  }
+}

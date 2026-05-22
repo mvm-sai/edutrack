@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: edutrack-backend
+    runtime: node
+    buildCommand: npm install && npm run seed
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      - key: NODE_ENV
+        value: production

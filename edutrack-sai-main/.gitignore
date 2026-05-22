@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Database
+backend/data/
+
+# WhatsApp session
+backend/.wwebjs_auth/
+backend/.wwebjs_cache/
+
+# Environment
+backend/.env
+
+# Build output
+frontend/dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Railway local
+.railway/
+
+# Capacitor build
+frontend/android/app/build/
+
+# Local WhatsApp bot
+local-whatsapp/node_modules/
+local-whatsapp/.wwebjs_auth/
+local-whatsapp/.wwebjs_cache/
