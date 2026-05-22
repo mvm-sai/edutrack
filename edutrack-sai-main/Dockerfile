@@ -47,5 +47,8 @@ WORKDIR /app/backend
 
 EXPOSE 3001
 
+# Verify Chromium is installed
+RUN which chromium && chromium --version || echo "WARNING: chromium not found"
+
 # Seed database (non-fatal if already seeded) and start server
-CMD ["sh", "-c", "npm run seed || true && npm start"]
+CMD ["sh", "-c", "echo '🌐 Chromium at:' $(which chromium 2>/dev/null || echo 'NOT FOUND') && npm run seed || true && npm start"]
